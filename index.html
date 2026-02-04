@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Afinador de Cuerdas — PWA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0ea5e9" />
+
+  <!-- iOS: modo app y icono grande -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Afinador" />
+  <link rel="apple-touch-icon" href="icons/icon-1024.png" sizes="1024x1024" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" sizes="180x180" />
+
+  <!-- Manifest (rutas relativas para funcionar en GitHub Pages subcarpeta) -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <style>
+    :root { --bg:#0b1220; --card:#121a2a; --text:#e6f0ff; --muted:#9fb3c8; --accent:#0ea5e9; --good:#10b981; --warn:#f59e0b; --bad:#ef4444; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial;background:linear-gradient(180deg,#0b1220,#0a0f1a);color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    header{padding:20px 16px 8px;text-align:center}
+    header h1{margin:0 0 6px;font-size:1.2rem;font-weight:700;letter-spacing:.2px}
+    header p{margin:0;color:var(--muted);font-size:.92rem}
+    .container{max-width:720px;margin:0 auto;padding:12px 16px 24px}
+    .card{background:linear-gradient(180deg,#121a2a 0%,#0f1726 100%);border:1px solid #1d2a40;border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 6px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:560px){.row{grid-template-columns:1fr}}
+    label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:6px}
+    select,input[type="range"]{width:100%;appearance:none;background:#0c1526;border:1px solid #21304a;color:var(--text);padding:10px 12px;border-radius:10px;outline:none;font-size:.98rem}
+    .controls{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:8px}
+    .btn{appearance:none;border:none;background:linear-gradient(180deg,#0ea5e9,#0284c7);color:#fff;padding:12px 14px;border-radius:10px;font-weight:700;font-size:1rem;letter-spacing:.3px;box-shadow:0 8px 20px rgba(2,132,199,.35);cursor:pointer;transition:transform .06s ease,filter .2s ease;-webkit-tap-highlight-color:transparent}
+    .btn:active{transform:translateY(1px) scale(.995)}
+    .btn.secondary{background:#17223a;border:1px solid #233352;box-shadow:none}
+    .readout{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;margin-top:8px}
+    .tile{background:#0c1424;border:1px solid #1a2842;border-radius:12px;padding:12px}
+    .tile .label{color:var(--muted);font-size:.8rem;margin-bottom:6px}
+    .note{font-size:2.2rem;font-weight:800;letter-spacing:1px}
+    .freq{font-size:1.2rem;font-weight:700}
+    .string{font-size:1.1rem;font-weight:700;color:#93c5fd}
+    .gauge{margin-top:12px;padding:12px;background:linear-gradient(180deg,#0c1424,#0a1120);border:1px solid #1a2842;border-radius:12px}
+    .gauge-scale{position:relative;height:76px;background:#0b1220;border:1px solid #1a2842;border-radius:10px;overflow:hidden}
+    .gauge-scale::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#2a1a1a 0%,#2a1a1a 5%,transparent 5%,transparent 45%,rgba(16,185,129,.12) 45%,rgba(16,185,129,.12) 55%,transparent 55%,transparent 95%,#2a1a1a 95%,#2a1a1a 100%);pointer-events:none}
+    .tick{position:absolute;bottom:0;width:1px;height:18px;background:#334155;opacity:.9}
+    .tick.major{height:28px;background:#64748b}
+    .center-line{position:absolute;left:50%;transform:translateX(-.5px);width:1px;height:100%;background:linear-gradient(180deg,rgba(16,185,129,.7),rgba(16,185,129,.15))}
+    .needle{position:absolute;top:0;left:50%;width:2px;height:100%;background:linear-gradient(180deg,#e11d48,#ef4444);box-shadow:0 0 12px rgba(239,68,68,.5);transform:translateX(-1px);transition:transform .06s linear}
+    .cents-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:.85rem;margin-top:6px;padding:0 4px}
+    .help{font-size:.9rem;color:var(--muted);line-height:1.45}
+    .fine{color:var(--good)}.sharp{color:var(--bad)}.flat{color:var(--warn)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Afinador de instrumentos de cuerda</h1>
+    <p>Notas en español (Do, Re, Mi, Fa, Sol, La, Si). Pulsa “Iniciar micrófono”, elige instrumento y toca una cuerda.</p>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="instrumento">Instrumento / Afinación</label>
+          <select id="instrumento">
+            <option value="guitarra">Guitarra (Mi2 La2 Re3 Sol3 Si3 Mi4)</option>
+            <option value="bajo4">Bajo 4 cuerdas (Mi1 La1 Re2 Sol2)</option>
+            <option value="bajo5">Bajo 5 cuerdas (Si0 Mi1 La1 Re2 Sol2)</option>
+            <option value="violin">Violín (Sol3 Re4 La4 Mi5)</option>
+            <option value="viola">Viola (Do3 Sol3 Re4 La4)</option>
+            <option value="cello">Cello (Do2 Sol2 Re3 La3)</option>
+            <option value="ukulele">Ukelele (Sol4 Do4 Mi4 La4)</option>
+            <option value="mandolina">Mandolina (Sol3 Re4 La4 Mi5)</option>
+            <option value="cromatico">Cromático (todas las notas)</option>
+          </select>
+        </div>
+        <div>
+          <label for="a4">Calibración La4: <span id="a4val">440</span> Hz</label>
+          <input id="a4" type="range" min="415" max="466" step="1" value="440" />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="toggle" class="btn">Iniciar micrófono</button>
+        <button id="reset" class="btn secondary">Reiniciar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="readout">
+        <div class="tile">
+          <div class="label">Nota detectada</div>
+          <div id="nota" class="note">—</div>
+        </div>
+        <div class="tile">
+          <div class="label">Cents</div>
+          <div id="cents" class="freq">—</div>
+        </div>
+        <div class="tile">
+          <div class="label">Cuerda objetivo</div>
+          <div id="string" class="string">—</div>
+        </div>
+      </div>
+
+      <div class="gauge" aria-label="Indicador de afinación">
+        <div class="gauge-scale" id="scale">
+          <div class="center-line"></div>
+          <div class="needle" id="needle"></div>
+        </div>
+        <div class="cents-labels"><span>-50¢ (grave)</span><span>0¢</span><span>+50¢ (agudo)</span></div>
+      </div>
+      <p class="help" style="margin-top:10px;">
+        Consejo: afina acercándote a <span class="fine">0¢</span>.
+        <span class="flat">Negativo</span> = grave; <span class="sharp">Positivo</span> = agudo.
+      </p>
+    </div>
+
+    <div class="card">
+      <p class="help">
+        Si no se escucha nada o no avanza el medidor:
+        1) Asegúrate de estar en HTTPS,
+        2) reduce ruido ambiental,
+        3) toca una sola cuerda,
+        4) en iOS, abre en Safari,
+        5) sube el volumen si es acústico.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const NOTE_NAMES_ES = ['Do','Do♯','Re','Re♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'];
+    function freqFromNoteNumber(n, A4 = 440) { return A4 * Math.pow(2, (n - 69) / 12); }
+    function noteNumberFromFreq(f, A4 = 440) { return 69 + 12 * (Math.log(f / A4) / Math.log(2)); }
+    function noteNameFromNumber(n) { const i = Math.round(n); const name = NOTE_NAMES_ES[(i + 1200) % 12]; const octave = Math.floor(i / 12) - 1; return `${name}${octave}`; }
+
+    const TUNINGS = {
+      guitarra:{label:'Guitarra',notes:[40,45,50,55,59,64]},
+      bajo4:{label:'Bajo 4',notes:[28,33,38,43]},
+      bajo5:{label:'Bajo 5',notes:[23,28,33,38,43]},
+      violin:{label:'Violín',notes:[55,62,69,76]},
+      viola:{label:'Viola',notes:[48,55,62,69]},
+      cello:{label:'Cello',notes:[36,43,50,57]},
+      ukulele:{label:'Ukelele',notes:[67,60,64,69]},
+      mandolina:{label:'Mandolina',notes:[55,62,69,76]},
+      cromatico:{label:'Cromático',notes:null}
+    };
+
+    const elInstrumento = document.getElementById('instrumento');
+    const elA4 = document.getElementById('a4');
+    const elA4Val = document.getElementById('a4val');
+    const elToggle = document.getElementById('toggle');
+    const elReset = document.getElementById('reset');
+    const elNota = document.getElementById('nota');
+    const elCents = document.getElementById('cents');
+    const elString = document.getElementById('string');
+    const elNeedle = document.getElementById('needle');
+    const elScale = document.getElementById('scale');
+
+    (function addTicks(){
+      for (let i=-50; i<=50; i+=5){
+        const tick=document.createElement('div');
+        const pct=(i+50)/100;
+        tick.className='tick'+(i%25===0?' major':'');
+        tick.style.left=`calc(${pct*100}% - 0.5px)`;
+        elScale.appendChild(tick);
+      }
+    })();
+
+    elA4.addEventListener('input',()=> elA4Val.textContent = elA4.value);
+    elReset.addEventListener('click',()=>{ elNota.textContent='—'; elCents.textContent='—'; elString.textContent='—'; elNeedle.style.transform='translateX(-1px)'; });
+
+    let audioContext=null, mediaStream=null, analyser=null, dataBuf=null, rafId=null, running=false;
+
+    async function start(){
+      if (running) return;
+      const ACtx = window.AudioContext || window.webkitAudioContext;
+      audioContext = new ACtx({ latencyHint: 'interactive' });
+      if (audioContext.state === 'suspended') await audioContext.resume();
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+      const src = audioContext.createMediaStreamSource(mediaStream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.0; src.connect(analyser);
+      dataBuf = new Float32Array(analyser.fftSize);
+      running = true; elToggle.textContent = 'Detener'; loop();
+    }
+
+    function stop(){
+      running=false; if (rafId) cancelAnimationFrame(rafId);
+      if (mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+      if (audioContext){ audioContext.close(); audioContext=null; }
+      elToggle.textContent='Iniciar micrófono';
+    }
+
+    elToggle.addEventListener('click', async ()=>{
+      try { if (!running) await start(); else stop(); }
+      catch(e){ alert('No se pudo acceder al micrófono. Usa HTTPS y revisa permisos.\n\nDetalle: '+e.message); stop(); }
+    });
+
+    function loop(){ if (!running) return; analyser.getFloatTimeDomainData(dataBuf); const sr=audioContext.sampleRate||48000; const freq=autoCorrelatePitch(dataBuf,sr); renderPitch(freq); rafId=requestAnimationFrame(loop); }
+
+    function autoCorrelatePitch(buf, sampleRate){
+      const SIZE = buf.length;
+      let rms=0; for (let i=0;i<SIZE;i++) rms += buf[i]*buf[i]; rms=Math.sqrt(rms/SIZE);
+      if (rms < 0.008) return -1;
+      let mean=0; for (let i=0;i<SIZE;i++) mean += buf[i]; mean/=SIZE; for (let i=0;i<SIZE;i++) buf[i]-=mean;
+      const MIN_FREQ=50, MAX_FREQ=1500; const minLag=Math.floor(sampleRate/MAX_FREQ); const maxLag=Math.floor(sampleRate/MIN_FREQ);
+      let bestLag=-1, bestCorr=0;
+      for (let lag=minLag; lag<=min(SIZE-1, maxLag); lag++){
+        let corr=0; for (let i=0;i<SIZE-lag;i++) corr += buf[i]*buf[i+lag];
+        if (corr>bestCorr){ bestCorr=corr; bestLag=lag; }
+      }
+      if (bestLag===-1) return -1;
+      function correlationAtLag(signal, lag){ if (lag<1||lag>=signal.length) return 0; let c=0; for (let i=0;i<signal.length-lag;i++) c += signal[i]*signal[i+lag]; return c; }
+      const y1=correlationAtLag(buf,bestLag-1), y2=correlationAtLag(buf,bestLag), y3=correlationAtLag(buf,bestLag+1);
+      const denom=(2*y2 - y1 - y3); let shift=0; if (denom!==0) shift=0.5*(y1-y3)/denom;
+      const lagEst = bestLag + shift; const f = sampleRate/lagEst; if (f<MIN_FREQ||f>MAX_FREQ) return -1; return f;
+      function min(a,b){ return a<b?a:b; }
+    }
+
+    function renderPitch(freq){
+      const A4 = Number(elA4.value);
+      if (freq<=0 || !isFinite(freq)){
+        elNota.textContent='—'; elCents.textContent='—'; elString.textContent='—'; elNeedle.style.transform='translateX(-1px)'; return;
+      }
+      const mode = elInstrumento.value; let targetNote=null, stringName='—';
+      function freqFromNoteNumber(n){ return A4 * Math.pow(2, (n-69)/12); }
+      function noteNumberFromFreqLocal(f){ return 69 + 12 * (Math.log(f/A4)/Math.log(2)); }
+      function centsOffLocal(f, n){ const tf=freqFromNoteNumber(n); return 1200 * Math.log(f/tf)/Math.log(2); }
+      function noteNameFromNumberLocal(n){ const i=Math.round(n); const name=NOTE_NAMES_ES[(i+1200)%12]; const octave=Math.floor(i/12)-1; return `${name}${octave}`; }
+
+      if (mode==='cromatico'){
+        const n = Math.round(noteNumberFromFreqLocal(freq)); targetNote=n; stringName=noteNameFromNumberLocal(n);
+      } else {
+        const sets = { guitarra:[40,45,50,55,59,64], bajo4:[28,33,38,43], bajo5:[23,28,33,38,43], violin:[55,62,69,76], viola:[48,55,62,69], cello:[36,43,50,57], ukulele:[67,60,64,69], mandolina:[55,62,69,76] };
+        let best={note:null, centsAbs:Infinity, label:''};
+        for (const n of sets[mode]){
+          const c = Math.abs(1200 * Math.log(freq/freqFromNoteNumber(n)) / Math.log(2));
+          if (c<best.centsAbs){ best.note=n; best.centsAbs=c; best.label=noteNameFromNumberLocal(n); }
+        }
+        targetNote=best.note; stringName=best.label;
+      }
+      const cents = 1200 * Math.log(freq / (A4 * Math.pow(2,(targetNote-69)/12))) / Math.log(2);
+      const shownNote = noteNameFromNumberLocal(Math.round(noteNumberFromFreqLocal(freq)));
+      elNota.textContent = shownNote;
+      const centsRounded = Math.max(-99, Math.min(99, Math.round(cents)));
+      elCents.textContent = (centsRounded>0?'+':'') + centsRounded + '¢';
+      elString.textContent = stringName;
+      const clamped = Math.max(-50, Math.min(50, cents));
+      const pct = (clamped + 50)/100; elNeedle.style.transform = `translateX(calc(${pct*100}% - 1px))`;
+      const abs = Math.abs(cents);
+      if (abs<=3) elCents.className='freq fine'; else if (abs<=10) elCents.className='freq flat'; else elCents.className='freq sharp';
+    }
+
+    (function warnIfNoHttps(){ const isHttps = location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1'; if (!isHttps) console.warn('iOS requiere HTTPS o localhost para micrófono y PWA.'); })();
+
+    if ('serviceWorker' in navigator){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(err=>console.warn('SW error:', err)); }); }
+  </script>
+</body>
+</html>
